@@ -5,6 +5,7 @@ from PIL import Image as PILImage
 from imgaug.augmentables.polys import Polygon, PolygonsOnImage
 import imgaug.augmenters as iaa
 import numpy as np
+from tqdm import tqdm
 
 def load_image_correct_orientation(image_path):
     image = PILImage.open(image_path)
@@ -82,7 +83,9 @@ def main(source_folder, destination_folder, num_augmentations=10):
         # iaa.Fog(),
     ])
 
-    for filename in os.listdir(source_folder):
+    # Use tqdm to create a progress bar
+    files = [f for f in os.listdir(source_folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
+    for filename in tqdm(files, desc="Processing images"):  # tqdm wraps around any iterable
         if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
             base_name = filename.split('.')[0]
             json_path = os.path.join(source_folder, base_name + '.json')
