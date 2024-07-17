@@ -44,10 +44,7 @@ def clip_points_to_image(points, img_height, img_width):
         clipped_points.append([clipped_x, clipped_y])
     return clipped_points
 
-def augment_image_and_labels(image, json_data, seq):
-    # Use width and height from JSON data to ensure consistency
-    image_height = json_data['imageHeight']
-    image_width = json_data['imageWidth']
+def augment_image_and_labels(image, json_data, seq, image_height, image_width):
 
     # Prepare polygons from JSON data
     polygons = [Polygon(format_points(shape['points'])) for shape in json_data['shapes'] if shape['shape_type'] == 'polygon']
@@ -61,10 +58,13 @@ def augment_image_and_labels(image, json_data, seq):
     for shape, polygon_aug in zip(new_json_data['shapes'], polygons_aug.polygons):
         clipped_points = clip_points_to_image(polygon_aug.exterior.tolist(), image_height, image_width)
         shape['points'] = format_points(clipped_points)
+    
+    new_json_data['imageHeight'] = image_height
+    new_json_data['imageWidth'] = image_width
 
     return image_aug, new_json_data
 
-def main(source_folder, destination_folder, num_augmentations=10):
+def main(source_folder, destination_folder, num_augmentations=10, h=480, w=640):
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)
 
@@ -81,8 +81,8 @@ def main(source_folder, destination_folder, num_augmentations=10):
         iaa.ContrastNormalization(alpha=(0.5, 2.0)),
         iaa.Grayscale(alpha=(0.0, 0.5)),
         # iaa.Fog(),
-        iaa.CropToAspectRatio(0.75, position="uniform"),  # Crop to aspect ratio of 3:4 (0.75)
-        iaa.Resize({"height": 480, "width": 640})  # Resize the image to 480x640
+        iaa.CropToAspectRatio(1.333333, position="uniform"),  # Crop to aspect ratio of 3:4 (0.75)
+        iaa.Resize({"height": h, "width": w})  # Resize the image to 480x640
     ])
 
     # Use tqdm to create a progress bar
@@ -99,7 +99,7 @@ def main(source_folder, destination_folder, num_augmentations=10):
                     json_data = load_json(json_path)
                     image = load_image_correct_orientation(image_path)
                     
-                    aug_image, aug_json_data = augment_image_and_labels(image, json_data, seq)
+                    aug_image, aug_json_data = augment_image_and_labels(image, json_data, seq, h, w)
                     aug_image_path = os.path.join(destination_folder, f"{base_name}_{i}.jpg")
                     imageio.imwrite(aug_image_path, aug_image)
                     aug_json_data['imagePath'] = os.path.basename(aug_image_path)
@@ -110,4 +110,4 @@ def main(source_folder, destination_folder, num_augmentations=10):
 if __name__ == "__main__":
     source_folder = '/home/bentengma/work_space/quick_augmentation/small_set_in'
     destination_folder = '/home/bentengma/work_space/quick_augmentation/small_set_out'
-    main(source_folder, destination_folder)
+    main(source_folder, destination_folder, num_augmentations=100)
