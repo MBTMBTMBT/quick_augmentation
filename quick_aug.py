@@ -81,6 +81,8 @@ def main(source_folder, destination_folder, num_augmentations=10):
         iaa.ContrastNormalization(alpha=(0.5, 2.0)),
         iaa.Grayscale(alpha=(0.0, 0.5)),
         # iaa.Fog(),
+        iaa.CropToAspectRatio(0.75, position="uniform"),  # Crop to aspect ratio of 3:4 (0.75)
+        iaa.Resize({"height": 480, "width": 640})  # Resize the image to 480x640
     ])
 
     # Use tqdm to create a progress bar
