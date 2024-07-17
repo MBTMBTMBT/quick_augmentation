@@ -34,6 +34,15 @@ def format_points(points):
     # Convert points to integers but keep them in float format for consistency
     return [[float(round(x)), float(round(y))] for x, y in points]
 
+def clip_points_to_image(points, img_height, img_width):
+    # Ensures that all points are within the image boundaries
+    clipped_points = []
+    for x, y in points:
+        clipped_x = np.clip(x, 0, img_width - 1)
+        clipped_y = np.clip(y, 0, img_height - 1)
+        clipped_points.append([clipped_x, clipped_y])
+    return clipped_points
+
 def augment_image_and_labels(image, json_data, seq):
     # Use width and height from JSON data to ensure consistency
     image_height = json_data['imageHeight']
@@ -49,7 +58,8 @@ def augment_image_and_labels(image, json_data, seq):
     # Update JSON data for the augmented polygons
     new_json_data = json_data.copy()
     for shape, polygon_aug in zip(new_json_data['shapes'], polygons_aug.polygons):
-        shape['points'] = format_points(polygon_aug.exterior.tolist())
+        clipped_points = clip_points_to_image(polygon_aug.exterior.tolist(), image_height, image_width)
+        shape['points'] = format_points(clipped_points)
 
     return image_aug, new_json_data
 
@@ -61,10 +71,15 @@ def main(source_folder, destination_folder, num_augmentations=10):
         iaa.Fliplr(0.5),  # flip horizontally
         iaa.Affine(
             rotate=(-45, 45),  # rotate between -30 and +30 degrees
-            scale=(0.5, 1.2)  # scale between 80% and 120%
+            scale=(0.5, 1.2),  # scale between 80% and 120%
+            translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
         ),
-        iaa.Multiply((0.5, 1.2)),  # change brightness
-        iaa.GaussianBlur(sigma=(0, 1.0))  # blur
+        iaa.Multiply((0.4, 1.5)),  # change brightness
+        iaa.GaussianBlur(sigma=(0, 2.0)),  # blur
+        iaa.AdditiveGaussianNoise(scale=(0, 0.1 * 255)),
+        iaa.ContrastNormalization(alpha=(0.5, 2.0)),
+        iaa.Grayscale(alpha=(0.0, 0.5)),
+        # iaa.Fog(),
     ])
 
     for filename in os.listdir(source_folder):

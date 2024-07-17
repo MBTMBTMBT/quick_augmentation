@@ -1,6 +1,0 @@
-path: ./small_set_in
-train: ./small_set_in/images
-val: ./small_set_in/images
-test:
-
-names:
