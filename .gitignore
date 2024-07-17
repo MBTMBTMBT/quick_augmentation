@@ -1,3 +1,3 @@
-./small_set_out
-./in
-./out
+./small_set_out/*
+./in/*
+./out/*

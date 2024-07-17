@@ -6,6 +6,7 @@ from imgaug.augmentables.polys import Polygon, PolygonsOnImage
 import imgaug.augmenters as iaa
 import numpy as np
 from tqdm import tqdm
+from copy import deepcopy
 
 def load_image_correct_orientation(image_path):
     image = PILImage.open(image_path)
@@ -44,7 +45,9 @@ def clip_points_to_image(points, img_height, img_width):
         clipped_points.append([clipped_x, clipped_y])
     return clipped_points
 
-def augment_image_and_labels(image, json_data, seq, image_height, image_width):
+def augment_image_and_labels(image, json_data, seq,):
+    image_height = json_data['imageHeight']
+    image_width = json_data['imageWidth']
 
     # Prepare polygons from JSON data
     polygons = [Polygon(format_points(shape['points'])) for shape in json_data['shapes'] if shape['shape_type'] == 'polygon']
@@ -58,9 +61,6 @@ def augment_image_and_labels(image, json_data, seq, image_height, image_width):
     for shape, polygon_aug in zip(new_json_data['shapes'], polygons_aug.polygons):
         clipped_points = clip_points_to_image(polygon_aug.exterior.tolist(), image_height, image_width)
         shape['points'] = format_points(clipped_points)
-    
-    new_json_data['imageHeight'] = image_height
-    new_json_data['imageWidth'] = image_width
 
     return image_aug, new_json_data
 
@@ -69,6 +69,7 @@ def main(source_folder, destination_folder, num_augmentations=10, h=480, w=640):
         os.makedirs(destination_folder)
 
     seq = iaa.Sequential([
+        iaa.Resize(0.25),
         iaa.Fliplr(0.5),  # flip horizontally
         iaa.Affine(
             rotate=(-45, 45),  # rotate between -30 and +30 degrees
@@ -95,19 +96,21 @@ def main(source_folder, destination_folder, num_augmentations=10, h=480, w=640):
 
             if os.path.exists(json_path):
                 # Load the original image and its JSON for each augmentation
+                original_json_data = load_json(json_path)
+                original_image = load_image_correct_orientation(image_path)
                 for i in range(num_augmentations):
-                    json_data = load_json(json_path)
-                    image = load_image_correct_orientation(image_path)
+                    json_data = deepcopy(original_json_data)
+                    image = np.copy(original_image)
                     
-                    aug_image, aug_json_data = augment_image_and_labels(image, json_data, seq, h, w)
+                    aug_image, aug_json_data = augment_image_and_labels(image, json_data, seq)
                     aug_image_path = os.path.join(destination_folder, f"{base_name}_{i}.jpg")
                     imageio.imwrite(aug_image_path, aug_image)
                     aug_json_data['imagePath'] = os.path.basename(aug_image_path)
-                    aug_json_data['imageHeight'] = json_data['imageHeight']
-                    aug_json_data['imageWidth'] = json_data['imageWidth']
+                    aug_json_data['imageHeight'] = h
+                    aug_json_data['imageWidth'] = w
                     save_json(aug_json_data, os.path.join(destination_folder, f"{base_name}_{i}.json"))
 
 if __name__ == "__main__":
-    source_folder = '/home/bentengma/work_space/quick_augmentation/small_set_in'
-    destination_folder = '/home/bentengma/work_space/quick_augmentation/small_set_out'
+    source_folder = '/home/bentengma/work_space/quick_augmentation/in'
+    destination_folder = '/home/bentengma/work_space/quick_augmentation/out'
     main(source_folder, destination_folder, num_augmentations=100)
